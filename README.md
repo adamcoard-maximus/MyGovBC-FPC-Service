@@ -34,6 +34,7 @@ USE_AUTH_TOKEN | Use Auth Token in all SSL
 LOGGER_HOST | Host name for the Splunk Forwarder
 LOGGER_PORT | Port for the Splunk Forwarder
 SPLUNK_AUTH_TOKEN | Authorization token required to use the splunk server
+BYPASS_CAPTCHA_URLS | A comma-separated list of relative urls that bypass the captcha (e.g. "service/rest/getCalendar"). Has no effect if USE_AUTH_TOKEN is false.
 
 
 ## Crypto Tips
