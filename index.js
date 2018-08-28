@@ -62,12 +62,15 @@ app.use('/', function (req, res, next) {
 
     // TODO: Replace 'urls' with the environment variables
     // TODO: Make it so they can optionally have slashes at beggining/end and it doesn't matter. Currently require / at beggining but not at end.
+    // Current url: //fpcareIntegration/rest/statusCheckFamNumber
+    // getCalendar: //fpcareIntegration/rest/getCalendar
     const urls = [        
-        // TODO: Determine which format is correct
-        '/fpcare/api/fpcareIntegration/rest/getCalendar', // "original" - the actual relative path a request is made to the nginx proxy
-        '/api/fpcareIntegration/rest/getCalendar', // nginx might strip out /fpcare/ part, unsure
-        '/fpcareIntegration/rest/getCalendar', // shouldn't be this one, included just in case
-        '/api/getCalendar', // why not
+        // TODO: Determine which format is correct, remove incorrect.
+        // '/fpcare/api/fpcareIntegration/rest/getCalendar', // "original" - the actual relative path a request is made to the nginx proxy
+        // '/api/fpcareIntegration/rest/getCalendar', // nginx might strip out /fpcare/ part, unsure
+        // '/fpcareIntegration/rest/getCalendar', // shouldn't be this one, included just in case
+        // '/api/getCalendar',
+        '//fpcareIntegration/rest/getCalendar'   // Surprisingly, after testing this is the URL in the req. Still need to verify it works.
     ];
 
     if( urls.includes(req.originalUrl) ){
@@ -142,7 +145,7 @@ app.use('/', function (req, res, next) {
         var pathname = url.parse(req.url).pathname;
         var pathnameParts = pathname.split("/");
 
-        // ? Idea for nouns: What about implmeneting uuid's in URLS for FPC? Maybe easier to track logs?
+        // ? Idea for nouns: What about implmeneting uuid's in URLS for FPC? Maybe easier to track logs? 
         // TODO: Need to remove these checks for FPC. But don't forget they use decoded.data.nonce to check the noun.
         // Looks like they're just checking the URL contains the nonce. Why would we care about that for FPC?
         // TODO: Use configurable env variables to bypass
