@@ -54,39 +54,58 @@ app.get('/status', function (req, res) {
     res.send("OK");
 });
 
+/**
+ * A formatted array of urls retrieved from `BYPASS_CAPTCHA_URLS`.
+ *
+ * Formatting includes removing any leading or trailing slashes to reduce user
+ * error.
+ */
+const bypassCaptchaURLs = process.env.BYPASS_CAPTCHA_URLS
+    .replace(/ /g, '') // Remove all spaces, if any exist they're just a user entry error
+    .split(',') // convert csv into array
+    .map(url => url.replace(/^\/+/g, '')) // Remove leading slashes on each url if any
+    .map(url => url.replace(/\/+$/, "")) // Remove trailing slashes on each url if any
+
+console.log('BYPASS_CAPTCHA_URLS', bypassCaptchaURLs)
+
 //
 // CAPTCHA Authorization, ALWAYS first
 //
 app.use('/', function (req, res, next) {
     console.log('CAPTCHA1 -', req.originalUrl, '\n');
 
-    // TODO: Replace 'urls' with the environment variables
-    // TODO: Make it so they can optionally have slashes at beggining/end and it doesn't matter. Currently require / at beggining but not at end.
-    // Current url: //fpcareIntegration/rest/statusCheckFamNumber
-    // getCalendar: //fpcareIntegration/rest/getCalendar
-    const urls = [        
-        // TODO: Determine which format is correct, remove incorrect.
-        // '/fpcare/api/fpcareIntegration/rest/getCalendar', // "original" - the actual relative path a request is made to the nginx proxy
-        // '/api/fpcareIntegration/rest/getCalendar', // nginx might strip out /fpcare/ part, unsure
-        // '/fpcareIntegration/rest/getCalendar', // shouldn't be this one, included just in case
-        // '/api/getCalendar',
-        '//fpcareIntegration/rest/getCalendar'   // Surprisingly, after testing this is the URL in the req. Still need to verify it works.
-    ];
-
-    if( urls.includes(req.originalUrl) ){
+    // reg.originalURL often has multiple leading slashes, but never trailing slashes
+    const formattedRequestURL = req.originalUrl.replace(/^\/+/g, '');
+   
+    // Bypass CAPTCHA check
+    if( bypassCaptchaURLs.includes(formattedRequestURL) ){
         console.log('BYPASS CAPTCHA'); //TODO: Remove.
         return next();
     }
 
-    // * Works - make sure to `return`. No body! But returns headers properly.
-    // denyAccess('testerino', res, req);
-    // return
-    
     // TODO: Delete additional FPC related headers, like weblogic, x-oracle, etc.
     // TODO: Get CAPTCHA validation working.
-    // TODO: FPC frontend, CAPTCHA token must be saved to headers -  'X-Authorization' : 'Bearer ' + token
+    // TODO: FPC Frontend: CAPTCHA token failing when going back and trying again (looks like it's adding multiple heaers instead of re-writing)
+    // error for failure on retries:
+    //
+        // CAPTCHA1 - //fpcareIntegration/rest/statusCheckFamNumber
+
+        // error: jwt verify failed, x-authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJkYXRhIjp7Im5vbmNlIjoiYjIyNjUyZTQtZWZiMi1lNDgzLTJjMDItMWVhNTU0OGMxZTA0In0sImlhdCI6MTUzNTQ4NzAxNiwiZXhwIjoxNTM1NDg3OTE2fQ.m
+        // vod4pnS8FQKDQGcGqadz_nGjNWq4bE4nOdnbQaUkvw,Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJkYXRhIjp7Im5vbmNlIjoiZTE4MmRmNmUtNjE3Yy1kZjY0LTM3NGEtZjQzYzkyZjQ1NGQzIn0sImlhdCI6MTUzNTQ4NzAzMywiZXhwIjoxNTM1NDg3OTMzfQ.V
+        // Ash57yLnJSXbeT0fkGivg26hDb_n9DTvhS7x02BMRk; err: JsonWebTokenError: jwt malformed
+        // error: jwt unverifiable - access denied.  request: {"host":"mygovbc-msp-service:8080","connection":"close","content-length":"118","origin":"https://moh-fpcare-dev.pathfinder.gov.bc.ca","user-agent":"Mozilla/5.0
+        // (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/67.0.3396.99 Safari/537.36","content-type":"application/json","accept":"application/json, text/plain, */*","angular":"FPC-API-Service","referer":
+        // "https://moh-fpcare-dev.pathfinder.gov.bc.ca/registration-status/request-status","accept-encoding":"gzip, deflate, br","accept-language":"en-US,en;q=0.9","x-forwarded-host":"moh-fpcare-dev.pathfinder.gov.bc.ca",
+        // "x-forwarded-port":"443","x-forwarded-proto":"https","forwarded":"for=142.31.57.168;host=moh-fpcare-dev.pathfinder.gov.bc.ca;proto=https","x-forwarded-for":"142.31.57.168"}
+        // denyAccess: jwt unverifiable
 
 
+    // Delete headers from Oracle and other middlelayer services
+    delete req.headers['x-oracle-dms-ecid'];
+    delete req.headers['x-oracle-dms-rid'];
+    delete req.headers['x-weblogic-force-jvmid'];
+    delete req.headers['breadcrumbid'];
+    delete req.headers['x-weblogic-request-clusterinfo'];
 
     //! Tidy up above ---- orig code below
 
@@ -216,7 +235,7 @@ var proxy = proxy({
     onProxyRes: function (proxyRes, req, res) {
         // winston.info('RAW Response from the target: ' + stringify(proxyRes.headers));
         // TODO: REMOVE THIS LINE! WE SHOULD NOT BE LOGGING THE WHOLE REQUEST AFTER DEV, COULD BE PII
-        winston.info('FULL Response from Target (TODO REMOVE!): ' + stringify({headers: proxyRes.headers, body: proxyRes.body}));
+        // winston.info('FULL Response from Target (TODO REMOVE!): ' + stringify({headers: proxyRes.headers, body: proxyRes.body}));
         // Delete set-cookie
         delete proxyRes.headers["set-cookie"];
     },
