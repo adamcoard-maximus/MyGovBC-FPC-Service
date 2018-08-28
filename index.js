@@ -58,6 +58,35 @@ app.get('/status', function (req, res) {
 // CAPTCHA Authorization, ALWAYS first
 //
 app.use('/', function (req, res, next) {
+    console.log('CAPTCHA1 -', req.originalUrl, '\n');
+
+    // TODO: Replace 'urls' with the environment variables
+    // TODO: Make it so they can optionally have slashes at beggining/end and it doesn't matter. Currently require / at beggining but not at end.
+    const urls = [        
+        // TODO: Determine which format is correct
+        '/fpcare/api/fpcareIntegration/rest/getCalendar', // "original" - the actual relative path a request is made to the nginx proxy
+        '/api/fpcareIntegration/rest/getCalendar', // nginx might strip out /fpcare/ part, unsure
+        '/fpcareIntegration/rest/getCalendar', // shouldn't be this one, included just in case
+        '/api/getCalendar', // why not
+    ];
+
+    if( urls.includes(req.originalUrl) ){
+        console.log('BYPASS CAPTCHA'); //TODO: Remove.
+        return next();
+    }
+
+    // * Works - make sure to `return`. No body! But returns headers properly.
+    // denyAccess('testerino', res, req);
+    // return
+    
+    // TODO: Delete additional FPC related headers, like weblogic, x-oracle, etc.
+    // TODO: Get CAPTCHA validation working.
+    // TODO: FPC frontend, CAPTCHA token must be saved to headers -  'X-Authorization' : 'Bearer ' + token
+
+
+
+    //! Tidy up above ---- orig code below
+
     // Log it
     // logSplunkInfo("incoming: ", req.method, req.headers.host, req.url, res.statusCode, req.headers["x-authorization"]);
 
@@ -95,6 +124,8 @@ app.use('/', function (req, res, next) {
             return;
         }
 
+        console.log('CAPTCHA2 Past try/catch block');
+
         // Ensure we have a nonce
         if (decoded == null ||
             decoded.data.nonce == null ||
@@ -103,29 +134,36 @@ app.use('/', function (req, res, next) {
             return;
         }
 
+        console.log('CAPTCHA3 Past decode block. Decoded Data: \n\n', JSON.stringify(decoded.data), '\n');
+
         // Check against the resource URL
         // typical URL:
         //    /MSPDESubmitApplication/2ea5e24c-705e-f7fd-d9f0-eb2dd268d523?programArea=enrolment
         var pathname = url.parse(req.url).pathname;
         var pathnameParts = pathname.split("/");
 
+        // ? Idea for nouns: What about implmeneting uuid's in URLS for FPC? Maybe easier to track logs?
+        // TODO: Need to remove these checks for FPC. But don't forget they use decoded.data.nonce to check the noun.
+        // Looks like they're just checking the URL contains the nonce. Why would we care about that for FPC?
+        // TODO: Use configurable env variables to bypass
+        console.log('CAPTCHA4 Bypassing MSPDE noun check.')
         // find the noun(s)
-        var nounIndex = pathnameParts.indexOf("MSPDESubmitAttachment");
-        if (nounIndex < 0) {
-            nounIndex = pathnameParts.indexOf("MSPDESubmitApplication");
-        }
+        // var nounIndex = pathnameParts.indexOf("MSPDESubmitAttachment");
+        // if (nounIndex < 0) {
+        //     nounIndex = pathnameParts.indexOf("MSPDESubmitApplication");
+        // }
 
-        if (nounIndex < 0 ||
-            pathnameParts.length < nounIndex + 2) {
-            denyAccess("missing noun or resource id", res, req);
-            return;
-        }
+        // if (nounIndex < 0 ||
+        //     pathnameParts.length < nounIndex + 2) {
+        //     denyAccess("missing noun or resource id", res, req);
+        //     return;
+        // }
 
-        // Finally, check that resource ID against the nonce
-        if (pathnameParts[nounIndex + 1] != decoded.data.nonce) {
-            denyAccess("resource id and nonce are not equal: " + pathnameParts[nounIndex + 1] + "; " + decoded.data.nonce, res, req);
-            return;
-        }
+        // // Finally, check that resource ID against the nonce
+        // if (pathnameParts[nounIndex + 1] != decoded.data.nonce) {
+        //     denyAccess("resource id and nonce are not equal: " + pathnameParts[nounIndex + 1] + "; " + decoded.data.nonce, res, req);
+        //     return;
+        // }
     }
     // OK its valid let it pass thru this event
     next(); // pass control to the next handler
@@ -173,8 +211,9 @@ var proxy = proxy({
     // Listen for the `proxyRes` event on `proxy`.
     //
     onProxyRes: function (proxyRes, req, res) {
-        winston.info('RAW Response from the target: ' + stringify(proxyRes.headers));
-
+        // winston.info('RAW Response from the target: ' + stringify(proxyRes.headers));
+        // TODO: REMOVE THIS LINE! WE SHOULD NOT BE LOGGING THE WHOLE REQUEST AFTER DEV, COULD BE PII
+        winston.info('FULL Response from Target (TODO REMOVE!): ' + stringify({headers: proxyRes.headers, body: proxyRes.body}));
         // Delete set-cookie
         delete proxyRes.headers["set-cookie"];
     },
@@ -208,9 +247,16 @@ function denyAccess(message, res, req) {
 
     res.writeHead(401);
     res.end();
+    console.log('denyAccess: ' + message); //TODO: REMOVE
 }
 
 function logSplunkError (message) {
+
+    //No point in calling this function if we don't have Splunk's address
+    if (!process.env.LOGGER_HOST || !process.env.LOGGER_PORT){
+        // console.log('logSplunkError called without Splunk setup:', message);
+        return;
+    }
 
     // log locally
     winston.error(message);
@@ -256,6 +302,12 @@ function logSplunkError (message) {
 }
 
 function logSplunkInfo (message) {
+
+    //No point in calling this function if we don't have Splunk's address
+    if (!process.env.LOGGER_HOST || !process.env.LOGGER_PORT){
+        // console.log('logSplunkInfo called without Splunk setup:', message);
+        return;
+    }
 
     // log locally
     winston.info(message);
