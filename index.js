@@ -66,48 +66,21 @@ const bypassCaptchaURLs = process.env.BYPASS_CAPTCHA_URLS
     .map(url => url.replace(/^\/+/g, '')) // Remove leading slashes on each url if any
     .map(url => url.replace(/\/+$/, "")) // Remove trailing slashes on each url if any
 
-console.log('BYPASS_CAPTCHA_URLS', bypassCaptchaURLs)
+winston.info('Formatted bypass captcha URLS:', JSON.stringify(bypassCaptchaURLs));
 
 //
 // CAPTCHA Authorization, ALWAYS first
 //
 app.use('/', function (req, res, next) {
-    console.log('CAPTCHA1 -', req.originalUrl, '\n');
-
-    // reg.originalURL often has multiple leading slashes, but never trailing slashes
-    const formattedRequestURL = req.originalUrl.replace(/^\/+/g, '');
-   
-    // Bypass CAPTCHA check
-    if( bypassCaptchaURLs.includes(formattedRequestURL) ){
-        console.log('BYPASS CAPTCHA'); //TODO: Remove.
-        return next();
-    }
-
-    // TODO: Delete additional FPC related headers, like weblogic, x-oracle, etc.
-    // TODO: Get CAPTCHA validation working.
-    // TODO: FPC Frontend: CAPTCHA token failing when going back and trying again (looks like it's adding multiple heaers instead of re-writing)
-    // error for failure on retries:
-    //
-        // CAPTCHA1 - //fpcareIntegration/rest/statusCheckFamNumber
-
-        // error: jwt verify failed, x-authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJkYXRhIjp7Im5vbmNlIjoiYjIyNjUyZTQtZWZiMi1lNDgzLTJjMDItMWVhNTU0OGMxZTA0In0sImlhdCI6MTUzNTQ4NzAxNiwiZXhwIjoxNTM1NDg3OTE2fQ.m
-        // vod4pnS8FQKDQGcGqadz_nGjNWq4bE4nOdnbQaUkvw,Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJkYXRhIjp7Im5vbmNlIjoiZTE4MmRmNmUtNjE3Yy1kZjY0LTM3NGEtZjQzYzkyZjQ1NGQzIn0sImlhdCI6MTUzNTQ4NzAzMywiZXhwIjoxNTM1NDg3OTMzfQ.V
-        // Ash57yLnJSXbeT0fkGivg26hDb_n9DTvhS7x02BMRk; err: JsonWebTokenError: jwt malformed
-        // error: jwt unverifiable - access denied.  request: {"host":"mygovbc-msp-service:8080","connection":"close","content-length":"118","origin":"https://moh-fpcare-dev.pathfinder.gov.bc.ca","user-agent":"Mozilla/5.0
-        // (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/67.0.3396.99 Safari/537.36","content-type":"application/json","accept":"application/json, text/plain, */*","angular":"FPC-API-Service","referer":
-        // "https://moh-fpcare-dev.pathfinder.gov.bc.ca/registration-status/request-status","accept-encoding":"gzip, deflate, br","accept-language":"en-US,en;q=0.9","x-forwarded-host":"moh-fpcare-dev.pathfinder.gov.bc.ca",
-        // "x-forwarded-port":"443","x-forwarded-proto":"https","forwarded":"for=142.31.57.168;host=moh-fpcare-dev.pathfinder.gov.bc.ca;proto=https","x-forwarded-for":"142.31.57.168"}
-        // denyAccess: jwt unverifiable
-
-
-    // Delete headers from Oracle and other middlelayer services
+    // Delete headers from Oracle and other backend services
+    // TODO: Verify this works. Maybe we have to do delete from res.headers?
     delete req.headers['x-oracle-dms-ecid'];
-    delete req.headers['x-oracle-dms-rid'];
+    // delete req.headers['x-oracle-dms-rid'];
     delete req.headers['x-weblogic-force-jvmid'];
     delete req.headers['breadcrumbid'];
     delete req.headers['x-weblogic-request-clusterinfo'];
 
-    //! Tidy up above ---- orig code below
+    delete res.headers['x-oracle-dms-rid']; //! test if this works instead of req.headres
 
     // Log it
     // logSplunkInfo("incoming: ", req.method, req.headers.host, req.url, res.statusCode, req.headers["x-authorization"]);
@@ -120,6 +93,14 @@ app.use('/', function (req, res, next) {
 
     // Delete any attempts at cookies
     delete req.headers["cookie"];
+
+    // format the request url so we can easily compare it, removing leading slashes
+    const formattedRequestURL = req.originalUrl.replace(/^\/+/g, '');
+
+    // Bypass CAPTCHA check and exit out of this function
+    if( bypassCaptchaURLs.includes(formattedRequestURL) ){
+        return next();
+    }
 
     // Validate token if enabled
     if (process.env.USE_AUTH_TOKEN &&
@@ -146,8 +127,6 @@ app.use('/', function (req, res, next) {
             return;
         }
 
-        console.log('CAPTCHA2 Past try/catch block');
-
         // Ensure we have a nonce
         if (decoded == null ||
             decoded.data.nonce == null ||
@@ -156,36 +135,33 @@ app.use('/', function (req, res, next) {
             return;
         }
 
-        console.log('CAPTCHA3 Past decode block. Decoded Data: \n\n', JSON.stringify(decoded.data), '\n');
+        // TODO: Use env variables to bypass hardcoded MSP logic instead of just commenting out
+        // ! Discuss with Jam how to add env variables. Didn't we have to modify OpenShift templates (json)?
+        // Simple fix: Just add a true/false env variable to bypass this. Have default (undefined) to behaviour MSP wants.
+        // Better fix: Add "nouns" as env variable; if any are defined then the nonce must follow at least one noun in URL
 
-        // Check against the resource URL
-        // typical URL:
-        //    /MSPDESubmitApplication/2ea5e24c-705e-f7fd-d9f0-eb2dd268d523?programArea=enrolment
-        var pathname = url.parse(req.url).pathname;
-        var pathnameParts = pathname.split("/");
+        // // Check against the resource URL
+        // // typical URL:
+        // //    /MSPDESubmitApplication/2ea5e24c-705e-f7fd-d9f0-eb2dd268d523?programArea=enrolment
+        // // var pathname = url.parse(req.url).pathname;
+        // // var pathnameParts = pathname.split("/");
+        // // find the noun(s)
+        // // var nounIndex = pathnameParts.indexOf("MSPDESubmitAttachment");
+        // // if (nounIndex < 0) {
+        // //     nounIndex = pathnameParts.indexOf("MSPDESubmitApplication");
+        // // }
 
-        // ? Idea for nouns: What about implmeneting uuid's in URLS for FPC? Maybe easier to track logs? 
-        // TODO: Need to remove these checks for FPC. But don't forget they use decoded.data.nonce to check the noun.
-        // Looks like they're just checking the URL contains the nonce. Why would we care about that for FPC?
-        // TODO: Use configurable env variables to bypass
-        console.log('CAPTCHA4 Bypassing MSPDE noun check.')
-        // find the noun(s)
-        // var nounIndex = pathnameParts.indexOf("MSPDESubmitAttachment");
-        // if (nounIndex < 0) {
-        //     nounIndex = pathnameParts.indexOf("MSPDESubmitApplication");
-        // }
+        // // if (nounIndex < 0 ||
+        // //     pathnameParts.length < nounIndex + 2) {
+        // //     denyAccess("missing noun or resource id", res, req);
+        // //     return;
+        // // }
 
-        // if (nounIndex < 0 ||
-        //     pathnameParts.length < nounIndex + 2) {
-        //     denyAccess("missing noun or resource id", res, req);
-        //     return;
-        // }
-
-        // // Finally, check that resource ID against the nonce
-        // if (pathnameParts[nounIndex + 1] != decoded.data.nonce) {
-        //     denyAccess("resource id and nonce are not equal: " + pathnameParts[nounIndex + 1] + "; " + decoded.data.nonce, res, req);
-        //     return;
-        // }
+        // // // Finally, check that resource ID against the nonce
+        // // if (pathnameParts[nounIndex + 1] != decoded.data.nonce) {
+        // //     denyAccess("resource id and nonce are not equal: " + pathnameParts[nounIndex + 1] + "; " + decoded.data.nonce, res, req);
+        // //     return;
+        // // }
     }
     // OK its valid let it pass thru this event
     next(); // pass control to the next handler
@@ -234,8 +210,6 @@ var proxy = proxy({
     //
     onProxyRes: function (proxyRes, req, res) {
         // winston.info('RAW Response from the target: ' + stringify(proxyRes.headers));
-        // TODO: REMOVE THIS LINE! WE SHOULD NOT BE LOGGING THE WHOLE REQUEST AFTER DEV, COULD BE PII
-        // winston.info('FULL Response from Target (TODO REMOVE!): ' + stringify({headers: proxyRes.headers, body: proxyRes.body}));
         // Delete set-cookie
         delete proxyRes.headers["set-cookie"];
     },
@@ -269,19 +243,17 @@ function denyAccess(message, res, req) {
 
     res.writeHead(401);
     res.end();
-    console.log('denyAccess: ' + message); //TODO: REMOVE
 }
 
 function logSplunkError (message) {
+    // log locally
+    winston.error(message);
 
-    //No point in calling this function if we don't have Splunk's address
+    //No point in continuing in this function if we don't have Splunk's address
     if (!process.env.LOGGER_HOST || !process.env.LOGGER_PORT){
         // console.log('logSplunkError called without Splunk setup:', message);
         return;
     }
-
-    // log locally
-    winston.error(message);
 
     var body = JSON.stringify({
         message: message
@@ -324,15 +296,14 @@ function logSplunkError (message) {
 }
 
 function logSplunkInfo (message) {
+    // log locally
+    winston.info(message);
 
-    //No point in calling this function if we don't have Splunk's address
+    //No point in continuing this function if we don't have Splunk's address
     if (!process.env.LOGGER_HOST || !process.env.LOGGER_PORT){
         // console.log('logSplunkInfo called without Splunk setup:', message);
         return;
     }
-
-    // log locally
-    winston.info(message);
 
     var body = JSON.stringify({
         message: message
