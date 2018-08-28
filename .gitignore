@@ -1,5 +1,6 @@
 /node_modules
 .idea
 *.pem
+.vscode
 *.pfx
 package-lock.json
