@@ -55,14 +55,16 @@ app.get('/status', function (req, res) {
 });
 
 /**
- * A formatted array of urls retrieved from `BYPASS_CAPTCHA_URLS`.
+ * A formatted array of urls retrieved from `BYPASS_CAPTCHA_URLS`. Will be
+ * undefined if env variable not set.
  *
  * Formatting includes removing any leading or trailing slashes to reduce user
  * error.
  */
+let bypassCaptchaURLs;
 if (process.env.BYPASS_CAPTCHA_URLS && process.env.BYPASS_CAPTCHA_URLS.length){
 
-    const bypassCaptchaURLs = process.env.BYPASS_CAPTCHA_URLS
+    bypassCaptchaURLs = process.env.BYPASS_CAPTCHA_URLS
         .replace(/ /g, '') // Remove all spaces, if any exist they're just a user entry error
         .split(',') // convert csv into array
         .map(url => url.replace(/^\/+/g, '')) // Remove leading slashes on each url if any
