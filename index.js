@@ -76,14 +76,12 @@ if (process.env.BYPASS_CAPTCHA_URLS && process.env.BYPASS_CAPTCHA_URLS.length){
 //
 app.use('/', function (req, res, next) {
     // Delete headers from Oracle and other backend services
-    // TODO: Verify this works. Maybe we have to do delete from res.headers?
+    // TODO: Verify this works. Maybe need to edit in one of the proxy event hooks?
     delete req.headers['x-oracle-dms-ecid'];
-    // delete req.headers['x-oracle-dms-rid'];
+    delete req.headers['x-oracle-dms-rid'];
     delete req.headers['x-weblogic-force-jvmid'];
     delete req.headers['breadcrumbid'];
     delete req.headers['x-weblogic-request-clusterinfo'];
-
-    delete res.headers['x-oracle-dms-rid']; //! test if this works instead of req.headres
 
     // Log it
     // logSplunkInfo("incoming: ", req.method, req.headers.host, req.url, res.statusCode, req.headers["x-authorization"]);

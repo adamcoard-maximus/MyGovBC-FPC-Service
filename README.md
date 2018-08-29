@@ -5,6 +5,7 @@ This repo/branch is a fork of the official MyGovBC-MSP-Service. The goal is to m
 - [ ] Need to address MSP hardcoded "nouns" in url string validation
 - [ ] Merge back into MyGovBC-MSP-Service
 - [ ] Revert OpenShift FPC Dev to load from MyGovBC-MSP-Service (currently it loads from MyGovBC-FPC-Service#fpc, i.e. this branch/repo)
+- [ ] Verify new OpenShift env variable, BYPASS_CAPTCHA_URLS, is setup correctly.  (Went into OpenShift dev > Applications > service > Environment "Add Value" - did *not* edit templates.) 
 
 # MyGovBC-MSP-Service
 
