@@ -1,3 +1,11 @@
+# FPC-Service
+
+This repo/branch is a fork of the official MyGovBC-MSP-Service. The goal is to merge this upstream once changes are complete and stable.
+
+- [ ] Need to address MSP hardcoded "nouns" in url string validation
+- [ ] Merge back into MyGovBC-MSP-Service
+- [ ] Revert OpenShift FPC Dev to load from MyGovBC-MSP-Service (currently it loads from MyGovBC-FPC-Service#fpc, i.e. this branch/repo)
+
 # MyGovBC-MSP-Service
 
 A NodeJS based static proxy for MyGovBC-MSP user interface.
