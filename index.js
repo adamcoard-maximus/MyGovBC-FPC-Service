@@ -60,13 +60,16 @@ app.get('/status', function (req, res) {
  * Formatting includes removing any leading or trailing slashes to reduce user
  * error.
  */
-const bypassCaptchaURLs = process.env.BYPASS_CAPTCHA_URLS
-    .replace(/ /g, '') // Remove all spaces, if any exist they're just a user entry error
-    .split(',') // convert csv into array
-    .map(url => url.replace(/^\/+/g, '')) // Remove leading slashes on each url if any
-    .map(url => url.replace(/\/+$/, "")) // Remove trailing slashes on each url if any
+if (process.env.BYPASS_CAPTCHA_URLS && process.env.BYPASS_CAPTCHA_URLS.length){
 
-winston.info('Formatted bypass captcha URLS:', JSON.stringify(bypassCaptchaURLs));
+    const bypassCaptchaURLs = process.env.BYPASS_CAPTCHA_URLS
+        .replace(/ /g, '') // Remove all spaces, if any exist they're just a user entry error
+        .split(',') // convert csv into array
+        .map(url => url.replace(/^\/+/g, '')) // Remove leading slashes on each url if any
+        .map(url => url.replace(/\/+$/, "")) // Remove trailing slashes on each url if any
+
+    winston.info('Formatted bypass captcha URLS:', JSON.stringify(bypassCaptchaURLs));
+}
 
 //
 // CAPTCHA Authorization, ALWAYS first
@@ -98,7 +101,7 @@ app.use('/', function (req, res, next) {
     const formattedRequestURL = req.originalUrl.replace(/^\/+/g, '');
 
     // Bypass CAPTCHA check and exit out of this function
-    if( bypassCaptchaURLs.includes(formattedRequestURL) ){
+    if( bypassCaptchaURLs && bypassCaptchaURLs.includes(formattedRequestURL) ){
         return next();
     }
 
